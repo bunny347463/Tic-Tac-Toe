@@ -1,2 +1,473 @@
 # Tic-Tac-Toe
 This is a 6x6 Tic Tac Toe game.
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tic Tac Toe 6x6 - Expert AI</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #111827;
+            --muted: #94a3b8;
+            --text: #e5e7eb;
+            --accent: #130435;
+            --x: #f97316;
+            --o: #34d399;
+            --win: #22d3ee
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto;
+            background: radial-gradient(1200px 800px at 70% -10%, #111827 0%, var(--bg) 60%);
+            color: var(--text);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px
+        }
+
+        .app {
+            width: min(1080px, 96vw)
+        }
+
+        h1 {
+            font-size: 28px;
+            margin: 0 0 10px
+        }
+
+        .panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .02));
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin-bottom: 12px
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        select,
+        button {
+            background: #0b1220;
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, .06);
+            padding: 7px 10px;
+            border-radius: 10px;
+            font-size: 13px
+        }
+
+        button.primary {
+            background: var(--accent);
+            color: #071133;
+            border: none;
+            font-weight: 700
+        }
+
+        .statusBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px
+        }
+
+        .board {
+            --size: 6;
+            display: grid;
+            grid-template-columns: repeat(var(--size), 1fr);
+            gap: 10px;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, .06);
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent)
+        }
+
+        .cell {
+            aspect-ratio: 1/1;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            font-size: 30px;
+            cursor: pointer;
+            border-radius: 12px;
+            background: #071226;
+            border: 1px solid rgba(255, 255, 255, .04);
+            user-select: none
+        }
+
+        .cell.X {
+            color: var(--x)
+        }
+
+        .cell.O {
+            color: var(--o)
+        }
+
+        .cell.win {
+            outline: 3px solid var(--win);
+            box-shadow: 0 6px 18px rgba(34, 211, 238, .08) inset
+        }
+
+        .cell.disabled {
+            pointer-events: none;
+            opacity: .6
+        }
+
+        .footer {
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 13px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <h1> Tic Tac Toe 6×6</h1>
+        <div class="panel">
+            <div class="controls">
+                <label for="mode">Regime:</label>
+                <select id="mode">
+                    <option value="pvp">2 People</option>
+                    <option value="cpu">Play against CPU</option>
+                </select>
+                <label for="playerMark">you:</label>
+                <select id="playerMark">
+                    <option value="X">X</option>
+                    <option value="O">O</option>
+                </select>
+                <label for="level">Difficulty:</label>
+                <select id="level">
+                    <option value="easy">Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="hard">Hard</option>
+                    <option value="expert" selected>Expert</option>
+                </select>
+                <button id="resetBtn" class="primary">Play new</button>
+                <button id="clearScoreBtn">Clear score</button>
+            </div>
+            <div class="statusBar">
+                <div id="status">Turn: <span id="turnPill">X</span></div>
+                <div id="score">X:0 | O:0 | Draw:0</div>
+            </div>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="footer">law: cần 4 ô border next để win. Expert use minimax có gender hạn độ sâu để AI strong real
+            sự.
+        </div>
+    </div>
+
+    <script>
+        // Game config
+        const SIZE = 6;
+        const K = 4; // cần 4  consecutive
+        const MAX_EXPERT_DEPTH = 4; // số step (ply) tối đa cho minimax (increase sẽ increase hơn)
+
+        // Elements
+        const boardEl = document.getElementById('board');
+        const statusEl = document.getElementById('status');
+        const turnPill = document.getElementById('turnPill');
+        const resetBtn = document.getElementById('resetBtn');
+        const clearScoreBtn = document.getElementById('clearScoreBtn');
+        const modeSel = document.getElementById('mode');
+        const levelSel = document.getElementById('level');
+        const playerMarkSel = document.getElementById('playerMark');
+        const scoreEl = document.getElementById('score');
+
+        // State
+        let board = []; // null | 'X' | 'O'
+        let current = 'X';
+        let over = false;
+        let scores = JSON.parse(localStorage.getItem('ttt6_scores') || '{"X":0,"O":0,"D":0}');
+
+        // Utilities
+        const idx = (r, c) => r * SIZE + c;
+        const inBounds = (r, c) => r >= 0 && c >= 0 && r < SIZE && c < SIZE;
+
+        // Init board UI
+        function initBoard() {
+            board = Array(SIZE * SIZE).fill(null);
+            boardEl.innerHTML = '';
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'cell'; btn.dataset.r = r; btn.dataset.c = c;
+                    btn.addEventListener('click', onCellClick, { once: true });
+                    boardEl.appendChild(btn);
+                }
+            }
+            boardEl.style.setProperty('--size', SIZE);
+        }
+
+        function updateTurn() { turnPill.textContent = current; }
+        function updateScore() { scoreEl.textContent = `X:${scores.X} | O:${scores.O} | Hoà:${scores.D}`; }
+
+        function reset(gameStart = true) {
+            over = false; current = 'X'; initBoard(); updateTurn(); statusEl.innerHTML = `Turn: <span id="turnPill">${current}</span>`;
+            if (gameStart && modeSel.value === 'cpu' && playerMarkSel.value === 'O') setTimeout(cpuMove, 350);
+        }
+
+        function place(r, c, mark) {
+            board[idx(r, c)] = mark;
+            const cell = boardEl.children[idx(r, c)];
+            cell.textContent = mark; cell.classList.add(mark); cell.classList.add('disabled');
+        }
+
+        function switchTurn() { current = current === 'X' ? 'O' : 'X'; updateTurn(); statusEl.innerHTML = `Turn: <span id="turnPill">${current}</span>`; }
+
+        function onCellClick(e) {
+            if (over) return;
+            const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+            if (board[idx(r, c)]) return;
+            place(r, c, current);
+            const st = evaluateState(r, c, current);
+            if (st.done) return endGame(st.winner, st.line);
+            switchTurn();
+            if (modeSel.value === 'cpu' && current !== playerMarkSel.value && !over) {
+                // slight delay for UX
+                setTimeout(cpuMove, 200);
+            }
+        }
+
+        function evaluateState(r, c, mark) {
+            const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (const [dr, dc] of dirs) {
+                let count = 1; let line = [[r, c]];
+                for (const s of [1, -1]) {
+                    let rr = r + s * dr, cc = c + s * dc;
+                    while (inBounds(rr, cc) && board[idx(rr, cc)] === mark) { count++; line.push([rr, cc]); rr += s * dr; cc += s * dc; }
+                }
+                if (count >= K) return { done: true, winner: mark, line: line.slice(0, K) };
+            }
+            if (board.every(x => x)) return { done: true, winner: null, line: [] };
+            return { done: false };
+        }
+
+        function endGame(w, line) {
+            over = true; if (line && line.length) line.forEach(([r, c]) => boardEl.children[idx(r, c)].classList.add('win'));
+            if (w) { statusEl.innerHTML = ` Win: <span>${w}</span>`; scores[w] = (scores[w] || 0) + 1; }
+            else { statusEl.innerHTML = ' Hoà!'; scores.D = (scores.D || 0) + 1; }
+            localStorage.setItem('ttt6_scores', JSON.stringify(scores)); updateScore();
+            // disable remaining
+            [...boardEl.children].forEach((el, i) => { if (!board[i]) el.classList.add('disabled'); });
+            // auto restart after 1s
+            setTimeout(() => reset(false), 1000);
+        }
+
+        function availableMoves() {
+            const moves = [];
+            for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (!board[idx(r, c)]) moves.push([r, c]);
+            return moves;
+        }
+
+        // Helper: generate candidate moves close to existing marks (reduce branching)
+        function candidateMoves() {
+            const neigh = new Set();
+            for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+                if (board[idx(r, c)]) {
+                    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+                        const rr = r + dr, cc = c + dc; if (inBounds(rr, cc) && !board[idx(rr, cc)]) neigh.add(idx(rr, cc));
+                    }
+                }
+            }
+            // if board empty, allow center
+            if (neigh.size === 0) { const mid = Math.floor(SIZE / 2); return [[mid, mid]]; }
+            return Array.from(neigh).map(i => [Math.floor(i / SIZE), i % SIZE]);
+        }
+
+        // Quick win/block check
+        function tryMoveWinOrBlock(mark) {
+            const moves = availableMoves();
+            for (const [r, c] of moves) { board[idx(r, c)] = mark; if (isWinning(r, c, mark)) { board[idx(r, c)] = null; return [r, c]; } board[idx(r, c)] = null; }
+            const opp = mark === 'X' ? 'O' : 'X';
+            for (const [r, c] of moves) { board[idx(r, c)] = opp; if (isWinning(r, c, opp)) { board[idx(r, c)] = null; return [r, c]; } board[idx(r, c)] = null; }
+            return null;
+        }
+
+        function isWinning(r, c, mark) {
+            const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (const [dr, dc] of dirs) { let cnt = 1; for (const s of [1, -1]) { let rr = r + s * dr, cc = c + s * dc; while (inBounds(rr, cc) && board[idx(rr, cc)] === mark) { cnt++; rr += s * dr; cc += s * dc; } } if (cnt >= K) return true; }
+            return false;
+        }
+
+        // Heuristic evaluation for non-terminal states
+        function evaluateBoardScore(mark) {
+            // positive means good for mark
+            const opp = mark === 'X' ? 'O' : 'X';
+            return scoreFor(mark) - scoreFor(opp) * 0.9;
+
+            function scoreFor(m) {
+                let total = 0;
+                const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+                for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+                    if (board[idx(r, c)] === m) {
+                        for (const [dr, dc] of dirs) {
+                            let cnt = 1, openEnds = 0;
+                            // forward
+                            let rr = r + dr, cc = c + dc; while (inBounds(rr, cc) && board[idx(rr, cc)] === m) { cnt++; rr += dr; cc += dc; }
+                            if (inBounds(rr, cc) && board[idx(rr, cc)] == null) openEnds++;
+                            // backward
+                            rr = r - dr; cc = c - dc; while (inBounds(rr, cc) && board[idx(rr, cc)] === m) { cnt++; rr -= dr; cc -= dc; }
+                            if (inBounds(rr, cc) && board[idx(rr, cc)] == null) openEnds++;
+                            // scoring: longer sequences and open ends weigh more
+                            if (cnt >= K) return Infinity; // immediate win
+                            total += Math.pow(10, cnt) * (openEnds + 1);
+                        }
+                    }
+                }
+                return total;
+            }
+        }
+
+        // Distance from center (lower is better)
+        function distFromCenter(r, c) { const mid = (SIZE - 1) / 2; return Math.abs(r - mid) + Math.abs(c - mid); }
+
+        // Minimax with alpha-beta and move ordering + pruning by candidate moves
+        function minimax(depth, alpha, beta, maximizing, aiMark) {
+            // Terminal check - check full board or immediate win
+            const moves = availableMoves();
+            // quick terminal detection
+            for (let i = 0; i < moves.length; i++) {
+                const [r, c] = moves[i];
+                if (isWinning(r, c, maximizing ? aiMark : (aiMark === 'X' ? 'O' : 'X'))) { } // no-op, handled below in simulation
+            }
+
+            if (depth === 0 || moves.length === 0) {
+                return { score: evaluateBoardScore(aiMark) };
+            }
+
+            const candidates = candidateMoves();
+            // move ordering: prefer center and higher potential
+            candidates.sort((a, b) => {
+                // simulate potential lengths
+                const va = scorePotential(a[0], a[1], maximizing ? aiMark : (aiMark === 'X' ? 'O' : 'X')) - distFromCenter(a[0], a[1]);
+                const vb = scorePotential(b[0], b[1], maximizing ? aiMark : (aiMark === 'X' ? 'O' : 'X')) - distFromCenter(b[0], b[1]);
+                return vb - va;
+            });
+
+            if (maximizing) {
+                let bestScore = -Infinity; let bestMove = null;
+                for (const [r, c] of candidates) {
+                    board[idx(r, c)] = aiMark;
+                    if (isWinning(r, c, aiMark)) {
+                        board[idx(r, c)] = null;
+                        return { score: 1e9 };
+                    }
+                    const res = minimax(depth - 1, alpha, beta, false, aiMark);
+                    board[idx(r, c)] = null;
+                    if (res.score > bestScore) { bestScore = res.score; bestMove = [r, c]; }
+                    alpha = Math.max(alpha, bestScore);
+                    if (beta <= alpha) break; // alpha-beta prune
+                }
+                return { score: bestScore, move: bestMove };
+            } else {
+                let bestScore = Infinity; let bestMove = null;
+                const opp = aiMark === 'X' ? 'O' : 'X';
+                for (const [r, c] of candidates) {
+                    board[idx(r, c)] = opp;
+                    if (isWinning(r, c, opp)) {
+                        board[idx(r, c)] = null;
+                        return { score: -1e9 };
+                    }
+                    const res = minimax(depth - 1, alpha, beta, true, aiMark);
+                    board[idx(r, c)] = null;
+                    if (res.score < bestScore) { bestScore = res.score; bestMove = [r, c]; }
+                    beta = Math.min(beta, bestScore);
+                    if (beta <= alpha) break;
+                }
+                return { score: bestScore, move: bestMove };
+            }
+        }
+
+        // utility: potential length if place mark at r,c
+        function scorePotential(r, c, mark) {
+            let best = 0; const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (const [dr, dc] of dirs) {
+                let cnt = 1;
+                for (const s of [1, -1]) { let rr = r + s * dr, cc = c + s * dc; while (inBounds(rr, cc) && board[idx(rr, cc)] === mark) { cnt++; rr += s * dr; cc += s * dc; } }
+                best = Math.max(best, cnt);
+            }
+            return best;
+        }
+
+        // Top-level CPU move
+        function cpuMove() {
+            if (over) return;
+            const mark = current;
+            const lvl = levelSel.value;
+            const moves = availableMoves(); if (!moves.length) return;
+
+            // quick wins/blocks
+            const urgent = tryMoveWinOrBlock(mark);
+            if (urgent) { const [r, c] = urgent; place(r, c, mark); const st = evaluateState(r, c, mark); if (st.done) return endGame(st.winner, st.line); switchTurn(); return; }
+
+            if (lvl === 'easy') {
+                const [r, c] = moves[Math.floor(Math.random() * moves.length)]; place(r, c, mark); const st = evaluateState(r, c, mark); if (st.done) return endGame(st.winner, st.line); switchTurn(); return;
+            }
+
+            if (lvl === 'normal' || lvl === 'hard') {
+                // use heuristic pick
+                const [r, c] = pickHeuristic(mark);
+                place(r, c, mark); const st = evaluateState(r, c, mark); if (st.done) return endGame(st.winner, st.line); switchTurn(); return;
+            }
+
+            // Expert: minimax with alpha-beta
+            if (lvl === 'expert') {
+                // depth tuned based on empties to save time
+                const empties = moves.length;
+                let depth = MAX_EXPERT_DEPTH; // default
+                if (empties > 28) depth = 3; // early game: shallower
+                if (empties > 32) depth = 2;
+                // run minimax
+                const res = minimax(depth, -Infinity, Infinity, true, mark);
+                const m = res.move || pickHeuristic(mark);
+                if (!m) { const [r, c] = moves[Math.floor(Math.random() * moves.length)]; place(r, c, mark); } else { place(m[0], m[1], mark); }
+                const st = evaluateState((m ? m[0] : 0), (m ? m[1] : 0), mark);
+                // if res.move undefined (rare), recalculate last placed cell
+                const lastIdx = board.findIndex(v => v === mark && boardEl.children[board.indexOf(mark)]);
+                if (st.done) return endGame(st.winner, st.line);
+                switchTurn();
+                return;
+            }
+        }
+
+        // Heuristic pick used by normal/hard and fallback
+        function pickHeuristic(mark) {
+            const candy = candidateMoves();
+            let best = null, bestScore = -Infinity;
+            for (const [r, c] of candy) {
+                const s = scorePotential(r, c, mark) * 100 - distFromCenter(r, c) * 2 + Math.random() * 6;
+                if (s > bestScore) { bestScore = s; best = [r, c]; }
+            }
+            return best || candy[Math.floor(Math.random() * candy.length)];
+        }
+
+        // Event bindings
+        resetBtn.addEventListener('click', () => reset());
+        clearScoreBtn.addEventListener('click', () => { scores = { X: 0, O: 0, D: 0 }; localStorage.setItem('ttt6_scores', JSON.stringify(scores)); updateScore(); });
+        modeSel.addEventListener('change', () => reset(false));
+        levelSel.addEventListener('change', () => reset(false));
+        playerMarkSel.addEventListener('change', () => reset(false));
+
+        // Kick off
+        updateScore(); reset();
+    </script>
+</body>
+
+</html>
