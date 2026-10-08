@@ -166,8 +166,7 @@
             </div>
         </div>
         <div class="board" id="board"></div>
-        <div class="footer">law: cần 4 ô border next để win. Expert use minimax có gender hạn độ sâu để AI strong real
-            sự.
+        <div class="footer">law: You need 4 border tiles next to win. Expert use minimax has gender and depth limit for AI strong realism.
         </div>
     </div>
 
@@ -175,7 +174,7 @@
         // Game config
         const SIZE = 6;
         const K = 4; // cần 4  consecutive
-        const MAX_EXPERT_DEPTH = 4; // số step (ply) tối đa cho minimax (increase sẽ increase hơn)
+        const MAX_EXPERT_DEPTH = 4; // Maximum number of steps (ply) for minimax (increase will be further)
 
         // Elements
         const boardEl = document.getElementById('board');
@@ -214,7 +213,7 @@
         }
 
         function updateTurn() { turnPill.textContent = current; }
-        function updateScore() { scoreEl.textContent = `X:${scores.X} | O:${scores.O} | Hoà:${scores.D}`; }
+        function updateScore() { scoreEl.textContent = `X:${scores.X} | O:${scores.O} | Draw:${scores.D}`; }
 
         function reset(gameStart = true) {
             over = false; current = 'X'; initBoard(); updateTurn(); statusEl.innerHTML = `Turn: <span id="turnPill">${current}</span>`;
@@ -260,7 +259,7 @@
         function endGame(w, line) {
             over = true; if (line && line.length) line.forEach(([r, c]) => boardEl.children[idx(r, c)].classList.add('win'));
             if (w) { statusEl.innerHTML = ` Win: <span>${w}</span>`; scores[w] = (scores[w] || 0) + 1; }
-            else { statusEl.innerHTML = ' Hoà!'; scores.D = (scores.D || 0) + 1; }
+            else { statusEl.innerHTML = ' Draw!'; scores.D = (scores.D || 0) + 1; }
             localStorage.setItem('ttt6_scores', JSON.stringify(scores)); updateScore();
             // disable remaining
             [...boardEl.children].forEach((el, i) => { if (!board[i]) el.classList.add('disabled'); });
