@@ -168,8 +168,7 @@ This is a 6x6 Tic Tac Toe game.
             </div>
         </div>
         <div class="board" id="board"></div>
-        <div class="footer">law: cần 4 ô border next để win. Expert use minimax có gender hạn độ sâu để AI strong real
-            sự.
+        <div class="footer">law: You need 4 border squares next to win. Expert use minimax has gender and depth limitations for strong AI realism.
         </div>
     </div>
 
@@ -177,7 +176,7 @@ This is a 6x6 Tic Tac Toe game.
         // Game config
         const SIZE = 6;
         const K = 4; // cần 4  consecutive
-        const MAX_EXPERT_DEPTH = 4; // số step (ply) tối đa cho minimax (increase sẽ increase hơn)
+        const MAX_EXPERT_DEPTH = 4; // Maximum number of steps (ply) for minimax (increase will be further)
 
         // Elements
         const boardEl = document.getElementById('board');
